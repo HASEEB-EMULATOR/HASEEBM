@@ -12,13 +12,18 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Fix the CPU mask
+      - name: Fix the CPU decode
         run: |
           sed -i 's/0x7F3FFC00u) == 0x1E200000u/0x7F20FC00u) == 0x1E200000u/' \
             app/src/main/cpp/src/cpu_neon.cpp
-          grep -n "0x7F20FC00u" app/src/main/cpp/src/cpu_neon.cpp
+          sed -i 's/if ((insn \& 0x1E000000u) == 0x1E000000u \&\& ((insn >> 28) \& 1u) == 0) {/if ((insn \& 0x5F000000u) == 0x1E000000u) {/' \
+            app/src/main/cpp/src/dbt_cache.cpp
+          echo "--- cpu_neon ---"
+          grep -n "0x7F20FC00u" app/src/main/cpp/src/cpu_neon.cpp || echo "NEON PATCH MISSED"
+          echo "--- dbt_cache ---"
+          grep -n "0x5F000000u" app/src/main/cpp/src/dbt_cache.cpp || echo "DBT PATCH MISSED"
 
-      - name: Write the fullscreen activity
+      - name: Write the fullscreen display
         run: |
           mkdir -p app/src/main/java/com/haseeb/emulator/ui/vm
           cat > app/src/main/java/com/haseeb/emulator/ui/vm/VmDisplayActivity.kt <<'EOF'
@@ -101,35 +106,39 @@ jobs:
           }
           EOF
 
-      - name: Rewrite MainActivity
+      - name: Write MainActivity (auto fullscreen + file log)
         run: |
           cat > app/src/main/java/com/haseeb/emulator/MainActivity.kt <<'EOF'
           package com.haseeb.emulator
 
+          import android.Manifest
           import android.content.Intent
+          import android.content.pm.PackageManager
           import android.graphics.Color
           import android.os.Bundle
+          import android.os.Environment
           import androidx.activity.ComponentActivity
           import androidx.activity.SystemBarStyle
           import androidx.activity.compose.setContent
           import androidx.activity.enableEdgeToEdge
-          import androidx.compose.foundation.layout.Box
-          import androidx.compose.foundation.layout.fillMaxSize
-          import androidx.compose.foundation.layout.padding
-          import androidx.compose.material3.ExtendedFloatingActionButton
-          import androidx.compose.material3.Text
-          import androidx.compose.runtime.Composable
-          import androidx.compose.ui.Alignment
-          import androidx.compose.ui.Modifier
-          import androidx.compose.ui.unit.dp
+          import androidx.core.app.ActivityCompat
+          import androidx.lifecycle.lifecycleScope
           import com.haseeb.emulator.ui.home.HomeScreen
           import com.haseeb.emulator.ui.theme.HaseebGamingTheme
           import com.haseeb.emulator.ui.vm.VmDisplayActivity
           import java.io.File
           import java.io.PrintWriter
           import java.io.StringWriter
+          import kotlinx.coroutines.Dispatchers
+          import kotlinx.coroutines.delay
+          import kotlinx.coroutines.launch
+          import kotlinx.coroutines.withContext
 
           class MainActivity : ComponentActivity() {
+
+              private var displayLaunched = false
+              private var lastLoggedLength = 0
+              private var logFile: File? = null
 
               override fun onCreate(savedInstanceState: Bundle?) {
                   installCrashLogger()
@@ -138,21 +147,77 @@ jobs:
                       statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
                       navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
                   )
-                  setContent { HaseebGamingTheme { Root() } }
+                  requestStorageIfNeeded()
+                  setContent { HaseebGamingTheme { HomeScreen() } }
+                  startWatchers()
               }
 
-              @Composable
-              private fun Root() {
-                  Box(Modifier.fillMaxSize()) {
-                      HomeScreen()
-                      ExtendedFloatingActionButton(
-                          onClick = {
-                              startActivity(Intent(this@MainActivity, VmDisplayActivity::class.java))
-                          },
-                          modifier = Modifier
-                              .align(Alignment.BottomStart)
-                              .padding(16.dp),
-                      ) { Text("Fullscreen") }
+              /** Opens the fullscreen guest display as soon as the VM starts, like other VM apps. */
+              private fun startWatchers() {
+                  lifecycleScope.launch {
+                      while (true) {
+                          delay(700)
+                          runCatching {
+                              if (Engine.nativeLibraryLoaded) {
+                                  val running = Engine.isRunning()
+                                  if (running && !displayLaunched) {
+                                      displayLaunched = true
+                                      startActivity(
+                                          Intent(this@MainActivity, VmDisplayActivity::class.java)
+                                      )
+                                  } else if (!running) {
+                                      displayLaunched = false
+                                  }
+                              }
+                          }
+                          flushLogs()
+                      }
+                  }
+              }
+
+              /** Appends the engine trace to HASEEB_EMULATOR/haseeblogs.txt. */
+              private suspend fun flushLogs() {
+                  withContext(Dispatchers.IO) {
+                      runCatching {
+                          if (!Engine.nativeLibraryLoaded) return@runCatching
+                          val trace = Engine.readBootTrace(64 * 1024)
+                          val tail = Engine.readLog(8 * 1024)
+                          val combined = buildString {
+                              append(trace)
+                              if (tail.isNotBlank()) append("\n--- log ---\n").append(tail)
+                          }
+                          if (combined.length > lastLoggedLength) {
+                              val fresh = combined.substring(lastLoggedLength)
+                              lastLoggedLength = combined.length
+                              val target = logTarget()
+                              target.parentFile?.mkdirs()
+                              target.appendText(fresh)
+                          }
+                      }
+                  }
+              }
+
+              private fun logTarget(): File {
+                  val preferred = File(Environment.getExternalStorageDirectory(), "HASEEB_EMULATOR/haseeblogs.txt")
+                  return runCatching {
+                      preferred.parentFile?.mkdirs()
+                      if (!preferred.exists()) preferred.createNewFile()
+                      preferred
+                  }.getOrElse {
+                      File(getExternalFilesDir(null) ?: filesDir, "haseeblogs.txt")
+                  }
+              }
+
+              private fun requestStorageIfNeeded() {
+                  if (android.os.Build.VERSION.SDK_INT <= 28 &&
+                      checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) !=
+                      PackageManager.PERMISSION_GRANTED
+                  ) {
+                      ActivityCompat.requestPermissions(
+                          this,
+                          arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                          1001,
+                      )
                   }
               }
 
@@ -162,7 +227,9 @@ jobs:
                       runCatching {
                           val buffer = StringWriter()
                           error.printStackTrace(PrintWriter(buffer))
-                          File(filesDir, "crash.txt").writeText("thread: ${thread.name}\n\n$buffer")
+                          val text = "thread: ${thread.name}\n\n$buffer"
+                          File(filesDir, "crash.txt").writeText(text)
+                          logTarget().appendText("\n=== CRASH ===\n$text\n")
                       }
                       previous?.uncaughtException(thread, error)
                   }
@@ -175,6 +242,11 @@ jobs:
           python3 - <<'PY'
           p = "app/src/main/AndroidManifest.xml"
           s = open(p, encoding="utf-8").read()
+          if "WRITE_EXTERNAL_STORAGE" not in s:
+              s = s.replace("    <application",
+                  '    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n'
+                  '    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n\n'
+                  '    <application', 1)
           if "VmDisplayActivity" not in s:
               e = ('        <activity\n'
                    '            android:name=".ui.vm.VmDisplayActivity"\n'
@@ -183,10 +255,8 @@ jobs:
                    '            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation"\n'
                    '            android:theme="@style/Theme.HaseebGaming" />\n\n')
               s = s.replace("    </application>", e + "    </application>")
-              open(p, "w", encoding="utf-8").write(s)
-              print("manifest patched")
-          else:
-              print("manifest already ok")
+          open(p, "w", encoding="utf-8").write(s)
+          print("manifest ok")
           PY
 
       - name: Android SDK + NDK + CMake
