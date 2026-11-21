@@ -83,8 +83,18 @@ jobs:
 
       - name: Build
         run: |
-          gradle --no-daemon assembleDebug 2>&1 | tee build-full.log | tail -60
-          exit ${PIPESTATUS[0]}
+          set +e
+          gradle --no-daemon assembleDebug 2>&1 | tee build-full.log | tail -40
+          echo "GRADLE_RC=${PIPESTATUS[0]}"
+          grep -nE "error:|error :|C/C\+\+: |undefined reference|FAILED:" build-full.log | grep -v "note:" | head -8 | while IFS= read -r l; do echo "::error::$l"; done
+
+      - name: Report build errors
+        if: always()
+        run: |
+          set +e
+          if [ -f build-full.log ]; then
+            grep -E "error:|C/C\+\+: |undefined reference" build-full.log | grep -v "note:" | head -5 | while IFS= read -r l; do echo "::error title=compile::$l"; done
+          fi
 
       - name: Upload APK
         if: always()
