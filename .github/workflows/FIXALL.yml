@@ -46,8 +46,14 @@ jobs:
 
       - name: Fix 7 - build tag
         run: |
-          sed -i 's/versionName = "1.2.0-trace"/' app/build.gradle.kts
-          grep -n "versionName" app/build.gradle.kts
+          python3 - <<'PY'
+          import re
+          p = "app/build.gradle.kts"
+          s = open(p, encoding="utf-8").read()
+          s = re.sub(r'versionName\s*=\s*"[^"]*"', 'versionName = "1.2.0-trace"', s)
+          open(p, "w", encoding="utf-8").write(s)
+          print([l.strip() for l in s.split("\n") if "versionName" in l])
+          PY
 
       - name: Android SDK + NDK + CMake
         run: |
