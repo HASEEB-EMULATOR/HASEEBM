@@ -55,10 +55,20 @@ jobs:
           import re
           p = "app/build.gradle.kts"
           s = open(p, encoding="utf-8").read()
-          s = re.sub(r'versionName\s*=\s*"[^"]*"', 'versionName = "1.4.0-selftest"', s)
+          s = re.sub(r'versionName\s*=\s*"[^"]*"', 'versionName = "1.6.0-pow2"', s)
           open(p, "w", encoding="utf-8").write(s)
           print([l.strip() for l in s.split("\n") if "versionName" in l])
           PY
+
+      - name: Fix 9 - head log file
+        run: |
+          echo 'cCA9ICJhcHAvc3JjL21haW4vamF2YS9jb20vaGFzZWViL2VtdWxhdG9yL01haW5BY3Rpdml0eS5rdCIKcyA9IG9wZW4ocCwgZW5jb2Rpbmc9InV0Zi04IikucmVhZCgpCgpvbGQgPSAiICAgICAgICAgICAgICAgICAgICB0YXJnZXQuYXBwZW5kVGV4dChmcmVzaCkiCm5ldyA9IG9sZCArICcnJwogICAgICAgICAgICAgICAgICAgIHJ1bkNhdGNoaW5nIHsKICAgICAgICAgICAgICAgICAgICAgICAgRmlsZSh0YXJnZXQucGFyZW50RmlsZSwgImhhc2VlYmxvZ3NfaGVhZC50eHQiKS53cml0ZVRleHQoY29tYmluZWQudGFrZSg0MDAwKSkKICAgICAgICAgICAgICAgICAgICB9JycnCgppZiAiaGFzZWVibG9nc19oZWFkLnR4dCIgaW4gczoKICAgIHByaW50KCJbaGVhZF0gYWxyZWFkeSBwcmVzZW50IikKZWxpZiBvbGQgaW4gczoKICAgIHMgPSBzLnJlcGxhY2Uob2xkLCBuZXcsIDEpCiAgICBvcGVuKHAsICJ3IiwgZW5jb2Rpbmc9InV0Zi04Iikud3JpdGUocykKICAgIHByaW50KCJbaGVhZF0gaGVhZC1sb2cgd3JpdGVyIGFkZGVkIikKZWxzZToKICAgIHByaW50KCJbaGVhZF0gQU5DSE9SIE5PVCBGT1VORCIpCgpwcmludCgidmVyaWZ5OiIsICJoYXNlZWJsb2dzX2hlYWQudHh0IiBpbiBvcGVuKHAsIGVuY29kaW5nPSJ1dGYtOCIpLnJlYWQoKSkK' | base64 -d > /tmp/headlog.py
+          python3 /tmp/headlog.py
+
+      - name: Fix 10 - echo POW2 at end
+        run: |
+          echo 'cCA9ICJhcHAvc3JjL21haW4vY3BwL3NyYy9lbmdpbmVfcnVudGltZS5jcHAiCnMgPSBvcGVuKHAsIGVuY29kaW5nPSJ1dGYtOCIpLnJlYWQoKQoKIyAxKSBjYXB0dXJlIFBPVzIgbGluZXMgZnJvbSB0aGUgVUFSVCBzdHJlYW0Kb2xkX2NiID0gIiIiICAgIDogbWFjaGluZV8oW3RoaXNdKGNvbnN0IHN0ZDo6c3RyaW5nJiBsaW5lKSB7CiAgICAgICAgICBBcHBlbmRMb2coIlVBUlQiLCBsaW5lKTsKICAgICAgfSkgeyIiIgpuZXdfY2IgPSAiIiIgICAgOiBtYWNoaW5lXyhbdGhpc10oY29uc3Qgc3RkOjpzdHJpbmcmIGxpbmUpIHsKICAgICAgICAgIEFwcGVuZExvZygiVUFSVCIsIGxpbmUpOwogICAgICAgICAgaWYgKGxpbmUuZmluZCgiUE9XMiIpICE9IHN0ZDo6c3RyaW5nOjpucG9zKSB7CiAgICAgICAgICAgICAgcG93Ml9saW5lXyA9IGxpbmU7CiAgICAgICAgICB9CiAgICAgIH0pIHsiIiIKCiMgMikgcmUtZW1pdCBhdCBoYWx0Cm9sZF9oYWx0ID0gJyAgICAgICAgICAgICAgICBBcHBlbmRMb2coIkVSUk9SIiwgIkd1ZXN0IGZhdWx0OiAiICsgZXJyX2RldGFpbCk7JwpuZXdfaGFsdCA9IG9sZF9oYWx0ICsgJycnCiAgICAgICAgICAgICAgICBpZiAoIXBvdzJfbGluZV8uZW1wdHkoKSkgewogICAgICAgICAgICAgICAgICAgIEFwcGVuZExvZygiUE9XMlJFU1VMVCIsIHBvdzJfbGluZV8pOwogICAgICAgICAgICAgICAgfScnJwoKaWYgInBvdzJfbGluZV8iIGluIHM6CiAgICBwcmludCgiW3BvdzJdIGFscmVhZHkgcHJlc2VudCIpCmVsc2U6CiAgICBvayA9IEZhbHNlCiAgICBpZiBvbGRfY2IgaW4gczoKICAgICAgICBzID0gcy5yZXBsYWNlKG9sZF9jYiwgbmV3X2NiLCAxKTsgb2sgPSBUcnVlCiAgICBpZiBvbGRfaGFsdCBpbiBzOgogICAgICAgIHMgPSBzLnJlcGxhY2Uob2xkX2hhbHQsIG5ld19oYWx0LCAxKTsgb2sgPSBUcnVlCiAgICBpZiBvazoKICAgICAgICAjIGRlY2xhcmUgdGhlIG1lbWJlciBpbnNpZGUgdGhlIGNsYXNzCiAgICAgICAgaGRyID0gImFwcC9zcmMvbWFpbi9jcHAvaW5jbHVkZS9oYXNlZWIvZW5naW5lX3J1bnRpbWUuaHBwIgogICAgICAgIGggPSBvcGVuKGhkciwgZW5jb2Rpbmc9InV0Zi04IikucmVhZCgpCiAgICAgICAgaWYgInBvdzJfbGluZV8iIG5vdCBpbiBoOgogICAgICAgICAgICBhbmNob3IgPSAiICAgIHN0ZDo6bXV0ZXggbXV0ZXhfOyIKICAgICAgICAgICAgaWYgYW5jaG9yIGluIGg6CiAgICAgICAgICAgICAgICBoID0gaC5yZXBsYWNlKGFuY2hvciwgJyAgICBzdGQ6OnN0cmluZyBwb3cyX2xpbmVfO1xuJyArIGFuY2hvciwgMSkKICAgICAgICAgICAgZWxzZToKICAgICAgICAgICAgICAgICMgZmFsbGJhY2s6IGluc2VydCBiZWZvcmUgdGhlIGxhc3QgY2xvc2luZyBicmFjZSBvZiB0aGUgY2xhc3MKICAgICAgICAgICAgICAgIGlkeCA9IGgucmZpbmQoIn07IikKICAgICAgICAgICAgICAgIGggPSBoWzppZHhdICsgIiAgICBzdGQ6OnN0cmluZyBwb3cyX2xpbmVfO1xuIiArIGhbaWR4Ol0KICAgICAgICAgICAgb3BlbihoZHIsICJ3IiwgZW5jb2Rpbmc9InV0Zi04Iikud3JpdGUoaCkKICAgICAgICBvcGVuKHAsICJ3IiwgZW5jb2Rpbmc9InV0Zi04Iikud3JpdGUocykKICAgICAgICBwcmludCgiW3BvdzJdIGNhcHR1cmUgKyByZS1lbWl0IGFkZGVkIikKICAgIGVsc2U6CiAgICAgICAgcHJpbnQoIltwb3cyXSBhbmNob3JzIG1pc3NpbmciKQoKdCA9IG9wZW4ocCwgZW5jb2Rpbmc9InV0Zi04IikucmVhZCgpCnByaW50KCJ2ZXJpZnk6IiwgInBvdzJfbGluZV8iIGluIHQpCg==' | base64 -d > /tmp/pow2echo.py
+          python3 /tmp/pow2echo.py
 
       - name: Android SDK + NDK + CMake
         run: |
